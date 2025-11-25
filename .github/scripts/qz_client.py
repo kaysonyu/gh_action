@@ -198,7 +198,7 @@ class QzClient:
 
 def main():
     parser = argparse.ArgumentParser(description="Qizhi CI/CD Runner")
-    parser.add_argument("--type", required=True, choices=["unit", "e2e"], help="Test type")
+    parser.add_argument("--type", required=True, choices=["unit", "e2e", "tmp"], help="Test type")
     parser.add_argument("--branch", required=True, help="Git branch")
     parser.add_argument("--commit", required=True, help="Git commit SHA")
     parser.add_argument("--timeout", type=int, default=7200, help="Wait timeout in seconds")
