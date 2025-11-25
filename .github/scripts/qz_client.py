@@ -69,7 +69,7 @@ export GIT_COMMIT={commit}
             "tmp": {
                 "instances": 2,
                 "timeout_ms": 120 * 60 * 1000,
-                "command": f"{git_cmd}\n echo ${GIT_BRANCH}"
+                "command": f"{git_cmd}"
             },
         }
         
