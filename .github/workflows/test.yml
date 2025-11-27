@@ -1,0 +1,85 @@
+name: Tmp Tests
+
+on:
+  release:
+    types: [created, published]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to test (leave empty to use current branch)'
+        required: false
+        type: string
+      commit:
+        description: 'Commit SHA to test (leave empty to use branch HEAD)'
+        required: false
+        type: string
+      update_baseline:
+        description: 'Update baseline with this run results (only if tests pass)'
+        required: false
+        type: boolean
+        default: false
+      tolerance:
+        description: 'Loss tolerance percentage (default: 5)'
+        required: false
+        type: string
+        default: '5'
+
+concurrency:
+  group: e2e-tests-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  e2e-tests:
+    runs-on: self-hosted
+    timeout-minutes: 180
+    env:
+      E2E_WORK_DIR: /inspire/ssd/project/embodied-multimodality/public/kyu/mossLite_E2E
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Get commit info
+        id: git_info
+        run: |
+          if [ -n "${{ inputs.commit }}" ]; then
+            COMMIT="${{ inputs.commit }}"
+          elif [ -n "${{ inputs.branch }}" ]; then
+            git fetch origin "${{ inputs.branch }}"
+            COMMIT=$(git rev-parse "origin/${{ inputs.branch }}")
+          else
+            COMMIT="${{ github.sha }}"
+          fi
+
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          echo "short_commit=${COMMIT:0:7}" >> $GITHUB_OUTPUT
+          echo "Commit: ${COMMIT}"
+
+      - name: Checkout code in shared storage
+        run: |
+          cd "$E2E_WORK_DIR"
+          git fetch origin
+          git checkout ${{ steps.git_info.outputs.commit }} --recurse-submodules
+          echo "Checkout completed: $(git rev-parse --short HEAD)"
+
+      - name: Submit E2E tests to Qizhi cluster
+        id: submit_tests
+        env:
+          QZ_USERNAME: ${{ secrets.QZ_USERNAME }}
+          QZ_PASSWORD: ${{ secrets.QZ_PASSWORD }}
+        run: |
+          echo "Submitting E2E tests to Qizhi cluster..."
+          echo "Commit: ${{ steps.git_info.outputs.short_commit }}"
+
+          python3 .github/scripts/qz_client.py \
+            --commit "${{ steps.git_info.outputs.commit }}" \
+            --work-dir "$E2E_WORK_DIR" \
+            --timeout 9000
